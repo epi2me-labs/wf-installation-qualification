@@ -1,11 +1,12 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
-    "title": "epi2me-labs/wf-template",
-    "description": "Nextflow workflow template repository.",
-    "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-template/wf-template-demo.tar.gz",
-    "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-template/wf-template-demo/aws.nextflow.config",
-    "url": "https://github.com/epi2me-labs/wf-template",
+    "title": "epi2me-labs/wf-installation-qualification",
+    "workflow_title": "Alignment workflow",
+    "description": "Align Nanopore reads and visualize mapping statistics.",
+    "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo.tar.gz",
+    "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo/aws.nextflow.config",
+    "url": "https://github.com/epi2me-labs/wf-alignment",
     "type": "object",
     "definitions": {
         "input": {
@@ -34,22 +35,37 @@
                     "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
                     "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 },
-                "watch_path": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable to continuously watch the input directory for new input files.",
-                    "help_text": "This option enables the use of Nextflow\u2019s directory watching feature to constantly monitor input directories for new files."
+                "references": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to a directory containing FASTA reference files.",
+                    "help_text": "Accepted file extensions are '.fasta', '.fna', '.ffn', '.faa', '.frn', '.fa', '.txt', '.fa.gz', '.fna.gz', '.frn.gz', '.ffn.gz', '.fasta.gz'."
+                },
+                "counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to a CSV file containing expected counts as a control.",
+                    "help_text": "The expected counts CSV file must contain columns named 'reference' and 'expected_counts' in order to be valid. the 'reference' column should contain names matching the names of reference sequences within the fasta files provided using --references."
                 }
             },
-            "oneOf": [
+            "allOf": [
                 {
                     "required": [
-                        "fastq"
+                        "references"
                     ]
                 },
                 {
-                    "required": [
-                        "bam"
+                    "oneOf": [
+                        {
+                            "required": [
+                                "fastq"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "bam"
+                            ]
+                        }
                     ]
                 }
             ]
@@ -83,16 +99,46 @@
                     "default": "output",
                     "format": "directory-path",
                     "description": "Directory for output of all workflow results."
+                },
+                "prefix": {
+                    "type": "string",
+                    "title": "Output filename prefix",
+                    "description": "Optional prefix attached to each of the output filenames.",
+                    "help_text": "Output filename format will be `<prefix>-filename.ext`."
                 }
             }
         },
         "advanced_options": {
-            "title": "Advanced Options",
+            "title": "Advanced options",
             "type": "object",
             "fa_icon": "far fa-question-circle",
             "description": "Advanced options for configuring processes inside the workflow.",
             "help_text": "These advanced options do not need to be changed for typical use, but allow fine tuning of workflows for users who want more control over the workflow.",
-            "properties": {}
+            "properties": {
+                "depth_coverage": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Calculate depth coverage statistics and include them in the report.",
+                    "help_text": "This step can be a computational bottleneck. Set this to false if your reference sequences are >50mb to speed things up."
+                },
+                "minimap_preset": {
+                    "type": "string",
+                    "title": "Minimap2 parameter preset",
+                    "description": "Pre-defined parameter sets for `minimap2`, covering most common use cases.",
+                    "help_text": "Available parameter sets are: 'dna' (`-ax map-ont`), 'rna' (`-ax splice -uf`).",
+                    "enum": [
+                        "dna",
+                        "rna"
+                    ],
+                    "default": "dna"
+                },
+                "minimap_args": {
+                    "type": "string",
+                    "title": "Minimap2 CLI arguments",
+                    "description": "String of command line arguments to be passed on to `minimap2`.",
+                    "help_text": "This overrides the options defined by `--minimap_preset` and allows for running the alignment step in a more customized way."
+                }
+            }
         },
         "misc": {
             "title": "Miscellaneous Options",
@@ -100,6 +146,14 @@
             "description": "Everything else.",
             "default": "",
             "properties": {
+                "threads": {
+                    "type": "integer",
+                    "default": 4,
+                    "minimum": 4,
+                    "maximum": 20,
+                    "description": "Number of CPU threads to use for the alignment step.",
+                    "help_text": "The alignment process will run with this many threads (note that the memory used by minimap2 scales with the number of threads). The total CPU resources used by the workflow are constrained by the executor configuration and can be modified by changing `nextflow.config` or supplying an additional config file."
+                },
                 "disable_ping": {
                     "type": "boolean",
                     "default": false,
@@ -107,16 +161,16 @@
                 },
                 "help": {
                     "type": "boolean",
+                    "default": false,
                     "description": "Display help text.",
                     "fa_icon": "fas fa-question-circle",
-                    "default": false,
                     "hidden": true
                 },
                 "version": {
                     "type": "boolean",
+                    "default": false,
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
-                    "default": false,
                     "hidden": true
                 }
             }
@@ -159,8 +213,16 @@
             "type": "boolean"
         }
     },
-    "docs": {
-        "intro": "## Introduction\n\nThis section of documentation typically contains an overview of the workflow in terms of motivation\nand bioinformatics methods, listing any key tools or algorithms employed, whilst also describing its\nrange of use-cases and what a suitable input dataset should look like.\n\n",
-        "links": "## Useful links\n\n* [nextflow](https://www.nextflow.io/)\n* [docker](https://www.docker.com/products/docker-desktop)\n* [singularity](https://docs.sylabs.io/guides/latest/user-guide/)\n"
+    "resources": {
+        "recommended": {
+            "cpus": 12,
+            "memory": "32GB"
+        },
+        "minimum": {
+            "cpus": 6,
+            "memory": "12GB"
+        },
+        "run_time": "0.5-5 minutes per sample (depending on number of reads, length of reference, and available compute).",
+        "arm_support": true
     }
 }
