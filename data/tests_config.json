@@ -1,0 +1,22 @@
+{
+    "correct_references": {
+        "barcode01": "lambda_757a991a.fasta",
+        "barcode02": "lambda_757a991a.fasta",
+        "barcode05": "lambda_757a991a.fasta",
+        "barcode07": "lambda_757a991a.fasta"
+    },
+    "control_samples": [
+        "barcode03", 
+        "barcode04",
+        "barcode06",
+        "barcode08"
+    ],
+    "parameters": {
+        "read_count_threshold": 3000,
+        "positive_correctly_mapped_threshold": 0.9,
+        "positive_coverage_threshold": 100,
+        "control_mapped_limit": 0.05,
+        "control_coverage_limit": 5,
+        "control_coverage_reference": "lambda_757a991a.fasta"
+    }
+}

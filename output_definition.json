@@ -1,7 +1,7 @@
 {
   "files": {
     "workflow-report": {
-      "filepath": "./wf-alignment-report.html",
+      "filepath": "wf-installation-qualification-report.html",
       "title": "workflow report",
       "description": "Report for all samples",
       "mime-type": "text/html",
@@ -9,7 +9,7 @@
       "type": "aggregated"
     },
     "references": {
-      "filepath": "./combined-refs.fasta",
+      "filepath": "combined-refs.fasta",
       "title": "Combined references",
       "description": "FASTA file containing all input references.",
       "mime-type": "text/txt",
@@ -17,7 +17,7 @@
       "type": "aggregated"
     },
     "references-index": {
-      "filepath": "./combined-refs.fasta.fai",
+      "filepath": "combined-refs.fasta.fai",
       "title": "Combined references index",
       "description": "Index file for combined references FASTA.",
       "mime-type": "text/txt",
@@ -25,7 +25,7 @@
       "type": "aggregated"
     },
     "per-read-bamstats": {
-      "filepath": "./{{ alias }}.readstats.tsv",
+      "filepath": "{{ alias }}.readstats.tsv",
       "title": "Per-read alignment stats",
       "description": "Bamstats per-read output TSV file.",
       "mime-type": "text/tab-separated-values",
@@ -33,28 +33,71 @@
       "type": "per-sample"
     },
     "bamstats-flagstat": {
-      "filepath": "./{{ alias }}.flagstat.tsv",
+      "filepath": "{{ alias }}.flagstat.tsv",
       "title": "Per-reference alignment stats",
       "description": "Bamstats flagstat output TSV file.",
       "mime-type": "text/tab-separated-values",
       "optional": false,
       "type": "per-sample"
     },
-    "alignments": {
-      "filepath": "./{{ alias }}.sorted.aligned.bam",
+    "alignment": {
+      "filepath": "{{ alias }}.sorted.aligned.bam",
       "title": "Alignments BAM file",
       "description": "BAM file with alignments of filtered input reads against the combined references.",
       "mime-type": "application/gzip",
       "optional": false,
       "type": "per-sample"
     },
-    "alignments-index": {
-      "filepath": "./{{ alias }}.sorted.aligned.bam.bai",
+    "alignment-index": {
+      "filepath": "{{ alias }}.sorted.aligned.bam.bai",
       "title": "Alignments index file",
       "description": "Index for alignments BAM file.",
       "mime-type": "application/octet-stream",
       "optional": false,
       "type": "per-sample"
+    },
+    "workflow-checkpoints" : {
+      "filepath": "checkpoints.json",
+      "title": "workflow checkpoints",
+      "description": "Structured workflow checkpoints for internal/onward use.",
+      "mime-type": "text/json",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "workflow-results": {
+      "filepath": "results.json",
+      "title": "workflow results",
+      "description": "Structured workflow results for internal/onward use.",
+      "mime-type": "text/json",
+      "optional": false,
+      "type": "aggregated"
+    }
+
+  },
+  "checkpoints": {
+    "alignment": {
+      "type": "per-sample",
+      "title": "alignment",
+      "description": "Checkpoint to monitor alignment.",
+      "files": [
+        "alignment",
+        "alignment-index"
+      ]
+    },
+    "sample_preparation": {
+      "type": "per-sample",
+      "title": "sample_preparation",
+      "description": "Checkpoint to monitor input sample preparation",
+      "files": []
+    },
+    "reporting": {
+      "type": "aggregated",
+      "title": "reporting",
+      "description": "Checkpoint to monitor reporting",
+      "files": [
+        "workflow-report",
+        "workflow-results"
+      ]
     }
   }
 }

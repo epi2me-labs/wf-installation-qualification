@@ -101,6 +101,28 @@ def refnames(refnames_dir):
     return refname2reffile
 
 
+def reflengths(reflengths_dir):
+    """Read files containing reference lengths with one line per contig.
+
+    :param reflengths_dir: directory containing files with ref. lengths
+    :return: `dict` mapping reference sequence IDs to reference lengths
+    """
+    reflengths = {}
+    for ref_length_file in os.listdir(reflengths_dir):
+        reference = ref_length_file.replace(".lengths.tsv", "")
+        df = pd.read_csv(
+            f"{reflengths_dir}/{ref_length_file}",
+            sep='\t',
+            header=None,
+            skiprows=1
+        )
+        total = df.iloc[:, 1].sum()
+        # Remove .gz from ref file name if present, before adding to dictionary
+        reference = reference.replace(".gz", "")
+        reflengths[reference] = total
+    return reflengths
+
+
 def depths(depths_dir, sample_names):
     """Read depth data.
 

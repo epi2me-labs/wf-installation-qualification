@@ -1,0 +1,9 @@
+﻿alias,barcode,sample_type
+barcode01,barcode01,test_sample
+barcode02,barcode02,test_sample
+barcode05,barcode05,test_sample
+barcode07,barcode07,test_sample
+barcode03,barcode03,no_template_control
+barcode04,barcode04,no_template_control
+barcode06,barcode06,no_template_control
+barcode08,barcode08,no_template_control

@@ -13,22 +13,23 @@ More information on running EPI2ME workflows can be found on our [website](https
 The following command can be used to obtain the workflow. This will pull the repository in to the assets folder of Nextflow and provide a list of all parameters available for the workflow as well as an example command:
 
 ```
-nextflow run epi2me-labs/wf-alignment –help
+nextflow run epi2me-labs/wf-installation-qualification –help
 ```
 
 A demo dataset is provided for testing of the workflow. It can be downloaded using:
 
 ```
-wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo.tar.gz
-tar -xzvf wf-alignment-demo.tar.gz
+wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-installation-qualification/wf-installation-qualification-demo.tar.gz
+tar -xzvf wf-installation-qualification-demo.tar.gz
 ```
 
 The workflow can be run with the demo data using:
 
 ```
-nextflow run epi2me-labs/wf-alignment \
-    --fastq wf-alignment-demo/fastq \
-    --references wf-alignment-demo/references \
+nextflow run epi2me-labs/wf-installation-qualification \
+    --fastq wf-installation-qualification-demo/fastq \
+    --references wf-installation-qualification-demo/references \
+    --sample_sheet wf-installation-qualification-demo/sample_sheet.csv \
     -profile standard
 ```
 
