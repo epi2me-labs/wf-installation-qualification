@@ -4,8 +4,7 @@ include:
       file: "wf-containers.yaml"
 
 variables:
-    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
-    --counts test_data/counts/ERCC_mix1.csv"
+    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references"
     CI_FLAVOUR: "new"
     PYTEST_CONTAINER_NAME: "wf-alignment"
 
@@ -20,7 +19,7 @@ docker-run:
     parallel:
         matrix:
             - MATRIX_NAME: [
-                "fastq", "bam", "ubam", "compress-one-ref", "compress-all-refs"
+                "fastq", "compress-one-ref"
             ]
     rules:
         # NOTE As we're overriding the rules block for the included docker-run
@@ -31,44 +30,25 @@ docker-run:
         - if: $MATRIX_NAME == "fastq"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
-        - if: $MATRIX_NAME == "bam"
-          variables:
-              NF_WORKFLOW_OPTS: "--bam test_data/bam --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
-              NF_IGNORE_PROCESSES: alignReads
-        - if: $MATRIX_NAME == "ubam"
-          variables:
-              NF_WORKFLOW_OPTS: "--bam test_data/ubam --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
+                  --sample_sheet test_data/sample_sheet/sample_sheet.csv -executor.\\$$local.memory 12GB"
         # run on FASTQ again after compressing one / all references
         - if: $MATRIX_NAME == "compress-one-ref"
           variables:
-              NF_BEFORE_SCRIPT: "gzip test_data/references/ERCC.fasta"
+              NF_BEFORE_SCRIPT: "gzip test_data/references/lambda_757a991a.fasta"
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
-        - if: $MATRIX_NAME == "compress-all-refs"
-          variables:
-              NF_BEFORE_SCRIPT: "gzip test_data/references/*"
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv -executor.\\$$local.memory 12GB"
+                  --sample_sheet test_data/sample_sheet/sample_sheet.csv -executor.\\$$local.memory 12GB"
 
 aws-run:
     parallel:
         matrix:
-            - MATRIX_NAME: [ "counts", "no-counts" ]
+            - MATRIX_NAME: [ "fastq" ]
     rules:
         # NOTE As we're overriding the rules block for the included docker-run
         #   we must redefine this CI_COMMIT_BRANCH rule to prevent docker-run
         #   being incorrectly scheduled for "detached merge request pipelines" etc.
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
-        - if: $MATRIX_NAME == "counts"
+        - if: $MATRIX_NAME == "fastq"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references \
-                  --counts test_data/counts/ERCC_mix1.csv"
-              NF_IGNORE_PROCESSES: sortInputBam
-        - if: $MATRIX_NAME == "no-counts"
-          variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references"
-              NF_IGNORE_PROCESSES: sortInputBam
+                  --sample_sheet test_data/sample_sheet/sample_sheet.csv -executor.\\$$local.memory 12GB"

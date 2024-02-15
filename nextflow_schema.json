@@ -2,11 +2,11 @@
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-installation-qualification",
-    "workflow_title": "Alignment workflow",
+    "workflow_title": "Installation qualification workflow",
     "description": "Align Nanopore reads and visualize mapping statistics.",
-    "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo.tar.gz",
-    "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo/aws.nextflow.config",
-    "url": "https://github.com/epi2me-labs/wf-alignment",
+    "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-installation-qualification/wf-installation-qualification-demo.tar.gz",
+    "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-installation-qualification/wf-installation-qualification-demo/aws.nextflow.config",
+    "url": "https://github.com/epi2me-labs/wf-installation-qualification",
     "type": "object",
     "definitions": {
         "input": {
@@ -40,6 +40,12 @@
                     "format": "directory-path",
                     "description": "Path to a directory containing FASTA reference files.",
                     "help_text": "Accepted file extensions are '.fasta', '.fna', '.ffn', '.faa', '.frn', '.fa', '.txt', '.fa.gz', '.fna.gz', '.frn.gz', '.ffn.gz', '.fasta.gz'."
+                },
+                "tests_config": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to a JSON file containing parameters for the qualification tests.",
+                    "help_text": "See data/tests_config.json for details."
                 },
                 "counts": {
                     "type": "string",
@@ -81,12 +87,11 @@
                     "format": "file-path",
                     "description": "A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files.",
                     "help_text": "The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`."
-                },
-                "sample": {
-                    "type": "string",
-                    "description": "A single sample name for non-multiplexed data. Permissible if passing a single .fastq(.gz) file or directory of .fastq(.gz) files."
                 }
-            }
+            },
+            "required": [
+                "sample_sheet"
+            ]
         },
         "output": {
             "title": "Output Options",
@@ -212,6 +217,7 @@
         "show_hidden_params": {
             "type": "boolean"
         }
+
     },
     "resources": {
         "recommended": {
@@ -219,8 +225,8 @@
             "memory": "32GB"
         },
         "minimum": {
-            "cpus": 6,
-            "memory": "12GB"
+            "cpus": 4,
+            "memory": "16GB"
         },
         "run_time": "0.5-5 minutes per sample (depending on number of reads, length of reference, and available compute).",
         "arm_support": true

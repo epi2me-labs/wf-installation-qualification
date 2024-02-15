@@ -2,23 +2,151 @@
 
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
+nextflow.preview.recursion=true
 
 include { fastq_ingress; xam_ingress; } from "./lib/ingress"
 include { process_references } from "./subworkflows/process_references"
+include {
+    getParams;
+} from './lib/common'
 
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 MINIMAP_ARGS_PRESETS = [
-    "dna": "-ax map-ont",
-    "rna": "-ax splice -uf"
+    "dna": "-ax map-ont -y",
+    "rna": "-ax splice -uf -y"
 ]
+
+
+///////////////////////
+// Workflow checkpoints
+///////////////////////
+
+process accumulateCheckpoints {
+    label "wf_common"
+    cpus 1
+    input:
+        path data
+        val metadata
+        path definitions
+    output:
+        path "checkpoints_${task.index}.json"
+        val metadata
+        path definitions
+    publishDir params.out_dir, mode: 'copy', overwrite: true, pattern: "checkpoints_${task.index}.json", saveAs: { 'checkpoints.json' }
+    script:
+        // If the data list is lenth 1 then nextflow makes it not a list
+        def data = data instanceof List ? data: [data]
+        // Set-up the output file
+        output = "checkpoints_${task.index}.json"
+        // The run metadata (sample sheet)
+        metaJson = new JsonBuilder(metadata).toPrettyString()
+        // The checkpoint data
+        checkpoint_data = data.getAt(0)
+        // Our 1st checkpoint will not have a checkpoints file created
+        // and the length of the data array wil be 1. Any subsequent checkpoint
+        // will have the data followed by all of the previous checkpoint files
+        // we need the last.
+        if (data.size() > 1) {
+            checkpoints_file = "--checkpoints_file ${data.getAt(-1)}"
+        } else {
+            checkpoints_file = ""
+        }
+    """
+    echo '${metaJson}' > metadata.json
+    accumulate_checkpoints.py ${output} \
+        --output_definitions ${definitions} \
+        --checkpoint_data ${checkpoint_data} \
+        --metadata metadata.json \
+        ${checkpoints_file}
+    """
+}
+
+process sample_preparationCheckpoint {
+  label "wf_common"
+  cpus 1
+  memory "2 GB"
+  input: 
+    tuple val(meta), path(sample), val(stats)
+  output:
+    path "checkpoint_info.json", emit: checkpoint
+  script:
+    String status = 'complete'
+
+    // make our checkpoint data
+    def checkpoint_data = [[
+            sample: "${meta.alias}",
+            checkpoint_name: "sample_preparation",
+            status: "complete"
+        ]]
+
+    checkJson = new JsonBuilder(checkpoint_data).toPrettyString()
+    """
+    echo '$checkJson' > checkpoint_info.json
+    """
+}
+
+process alignmentCheckpoint {
+  label "wf_common"
+  cpus 1
+  memory "2 GB"
+  input:
+    tuple val(meta), path(bam), path(bai)
+  output:
+    path "checkpoint_info.json", emit: checkpoint
+  script:
+    String status = 'complete'
+
+    // make our checkpoint data
+    def checkpoint_data = [[
+            sample: "${meta.alias}",
+            checkpoint_name: "alignment",
+            status: "complete",
+            files: [ "alignment": "./${bam}", "alignment-index": "./${bai}" ]
+        ]]
+
+    checkJson = new JsonBuilder(checkpoint_data).toPrettyString()
+    """
+    echo '$checkJson' > checkpoint_info.json
+    """
+}
+
+process reportingCheckpoint {
+  label "wf_common"
+  cpus 1
+  memory "2 GB"
+  input:
+    path report
+  output:
+    path "checkpoint_info.json", emit: checkpoint
+  script:
+    String status = 'complete'
+
+    // make our checkpoint data
+    def checkpoint_data = [[
+            sample: "",
+            checkpoint_name: "reporting",
+            status: "complete",
+            files: [ 
+              "workflow-report": "./${report}",
+              "workflow-results": "./results.json"]
+        ]]
+
+    checkJson = new JsonBuilder(checkpoint_data).toPrettyString()
+    """
+    echo '$checkJson' > checkpoint_info.json
+    """
+}
+
+
+///////////////////////
+// Workflow processes
+///////////////////////
 
 process alignReads {
     label "wfalignment"
     cpus params.threads
-    memory {
-        combined_refs.size() > 1e9 ? "32 GB" : "12 GB"
-    }
+    memory "12 GB"
     input:
         tuple val(meta), path(input)
         path combined_refs
@@ -142,7 +270,7 @@ process makeReport {
     String counts_args = (counts.name == OPTIONAL_FILE.name) ? "" : "--counts $counts"
     """
     workflow-glue report \
-        --name wf-alignment \
+        --name wf-installation-qualification \
         --stats_dir readstats \
         --flagstat_dir flagstat \
         --refnames_dir refnames \
@@ -175,21 +303,6 @@ process getVersions {
 }
 
 
-process getParams {
-    label "wfalignment"
-    cpus 1
-    memory "2 GB"
-    output:
-        path "params.json"
-    script:
-        def paramsJSON = new JsonBuilder(params).toPrettyString()
-    """
-    # Output nextflow params object to JSON
-    echo '$paramsJSON' > params.json
-    """
-}
-
-
 // workflow module
 workflow pipeline {
     take:
@@ -197,6 +310,7 @@ workflow pipeline {
         refs
         counts
         depth_coverage
+        tests_config
     main:
         // get params & versions
         workflow_params = getParams()
@@ -207,7 +321,6 @@ workflow pipeline {
 
         sample_data = sample_data
         | map { meta, path, stats -> [meta, path] }
-
         String minimap_args
 
         if (params.bam) {
@@ -237,6 +350,8 @@ workflow pipeline {
         )
         | indexBam
 
+        alignment_checkpoint = alignmentCheckpoint(bam)
+
         // get stats
         stats = bamstats(bam)
 
@@ -247,16 +362,37 @@ workflow pipeline {
             ref_lengths_with_steps = addStepsColumn(refs.lengths_combined)
             depth_per_ref = readDepthPerRef(bam, ref_lengths_with_steps)
         }
+        read_stats = stats.read_stats.collect()
+        flagstat = stats.flagstat.collect()
+        
+        qualification_tests = process_tests(
+            read_stats,
+            flagstat,
+            refs.names_per_ref_file.collect(),
+            refs.lengths_per_ref_file.collect(),
+            tests_config
+        )
 
+        metadata = sample_data.map { meta, reads -> meta }.toList()
+
+        // process the results into a json file for dissemination
+        collected_results = collect_results(
+            read_stats,
+            qualification_tests,
+            metadata)
+        
         report = makeReport(
-            stats.read_stats.collect(),
-            stats.flagstat.collect(),
+            read_stats,
+            flagstat,
             refs.names_per_ref_file.collect(),
             depth_per_ref.collect(),
             counts,
             software_versions,
             workflow_params,
         )
+    // If the emit values are altered, check that the output() process 
+    // is run only on the appropriate outputs. 
+    // Eg. output(jb2_conf.concat(*results[0..-3]))
     emit:
         alignments = bam.map { it[1] }
         indices = bam.map{ it[2] }
@@ -267,6 +403,9 @@ workflow pipeline {
         software_versions
         combined_ref = refs.combined
         combined_ref_index = refs.combined_index
+        collected_results = collected_results
+        alignment_checkpoint = alignment_checkpoint
+        metadata = metadata
 }
 
 
@@ -276,7 +415,7 @@ workflow pipeline {
 process output {
     label "wfalignment"
     cpus 1
-    memory "2 GB"
+    memory "12 GB"
     // publish inputs to output directory
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*", saveAs: {
         f -> params.prefix ? "${params.prefix}-${f}" : "${f}" }
@@ -293,7 +432,7 @@ process output {
 process configure_jbrowse {
     label "wfalignment"
     cpus 1
-    memory { reference.size() > 1e9 ? "16 GB" : "2 GB" }
+    memory "2 GB"
     input:
         path(alignments)
         path(indexes)
@@ -321,13 +460,76 @@ process configure_jbrowse {
 }
 
 
+process process_tests {
+    label "wfalignment"
+    cpus 1
+    memory "2 GB"
+    input:
+        path "readstats/*"
+        path "flagstat/*"
+        path "refnames/*"
+        path "reflengths/*"
+        path "tests_config"
+    output:
+        path "qualification_tests.json"
+    script:
+    """
+    workflow-glue process_tests \
+        --stats_dir readstats \
+        --flagstat_dir flagstat \
+        --refnames_dir refnames \
+        --reflengths_dir reflengths \
+        --tests_config tests_config
+    """
+    
+}
+
+
+process collect_results {
+    label "wfalignment"
+    cpus 1
+    memory "12 GB"
+    input:
+        path "readstats/*"
+        path "qualification_tests"
+        val "metadata"
+    output:
+        path "results.json"
+    script:
+    metaJson = new JsonBuilder(metadata).toPrettyString()
+    """
+    echo '${metaJson}' > metadata.json
+    workflow-glue collect_results \
+        --output "results.json" \
+        --stats_dir readstats \
+        --qualification_tests $qualification_tests \
+        --meta "metadata.json"
+    """
+}
+
+
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
     Pinguscript.ping_start(nextflow, workflow, params)
 
+    File checkpoints_file = new File("checkpoints.json");  
+
+    if (checkpoints_file.exists() == true && workflow.resume == false){
+        checkpoints_file.delete()
+    } 
+
+    // set tests_config file
+    // (can't reassign a params value so create a local variable)
+    if (!params.tests_config){
+        tests_config = projectDir.resolve("./data/tests_config.json").toString()
+    } else {
+        tests_config = params.tests_config
+    }
+
+
+
     Map ingress_args = [
-        "sample": params.sample,
         "sample_sheet": params.sample_sheet,
         "analyse_unclassified": params.analyse_unclassified,
         "stats": false,
@@ -343,10 +545,11 @@ workflow {
     }
 
     counts = file(params.counts ?: OPTIONAL_FILE, checkIfExists: true)
+    sampleprep = sample_preparationCheckpoint(sample_data)
 
     // Run pipeline
     results = pipeline(
-        sample_data, params.references, counts, params.depth_coverage
+        sample_data, params.references, counts, params.depth_coverage, tests_config
     )
 
     // create jbrowse file
@@ -356,7 +559,20 @@ workflow {
         results.combined_ref,
         results.combined_ref_index
     )
-    output(jb2_conf.concat(results))
+
+
+    // output all but the last two items of results
+    output(jb2_conf.concat(*results[0..-3]))
+
+    // The output definition file
+    definitions = projectDir.resolve("./output_definition.json").toString()
+
+    // checkpoints
+    reporting_checkpoint = reportingCheckpoint(results.report)
+    accumulateCheckpoints.scan(
+      sampleprep.mix(*[results.alignment_checkpoint, reporting_checkpoint]
+      ), results.metadata, definitions) 
+
 }
 
 workflow.onComplete {

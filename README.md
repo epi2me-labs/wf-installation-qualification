@@ -1,4 +1,4 @@
-# Alignment workflow
+# Installation qualification workflow
 
 Align Nanopore reads and visualize mapping statistics.
 
@@ -29,8 +29,8 @@ Recommended requirements:
 
 Minimum requirements:
 
-+ CPUs = 6
-+ Memory = 12GB
++ CPUs = 4
++ Memory = 16GB
 
 Approximate run time: 0.5-5 minutes per sample (depending on number of reads, length of reference, and available compute).
 
@@ -56,22 +56,23 @@ More information on running EPI2ME workflows can be found on our [website](https
 The following command can be used to obtain the workflow. This will pull the repository in to the assets folder of Nextflow and provide a list of all parameters available for the workflow as well as an example command:
 
 ```
-nextflow run epi2me-labs/wf-alignment –help
+nextflow run epi2me-labs/wf-installation-qualification –help
 ```
 
 A demo dataset is provided for testing of the workflow. It can be downloaded using:
 
 ```
-wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-alignment/wf-alignment-demo.tar.gz
-tar -xzvf wf-alignment-demo.tar.gz
+wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-installation-qualification/wf-installation-qualification-demo.tar.gz
+tar -xzvf wf-installation-qualification-demo.tar.gz
 ```
 
 The workflow can be run with the demo data using:
 
 ```
-nextflow run epi2me-labs/wf-alignment \
-    --fastq wf-alignment-demo/fastq \
-    --references wf-alignment-demo/references \
+nextflow run epi2me-labs/wf-installation-qualification \
+    --fastq wf-installation-qualification-demo/fastq \
+    --references wf-installation-qualification-demo/references \
+    --sample_sheet wf-installation-qualification-demo/sample_sheet.csv \
     -profile standard
 ```
 
@@ -122,6 +123,7 @@ input_reads.fastq   ─── input_directory  ─── input_directory
 | bam | string | BAM or unaligned BAM (uBAM) files to use in the analysis. | This accepts one of three cases: (i) the path to a single BAM file; (ii) the path to a top-level directory containing BAM files; (iii) the path to a directory containing one level of sub-directories which in turn contain BAM files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`. |  |
 | analyse_unclassified | boolean | Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory. | If selected and if the input is a multiplex directory the workflow will also process the unclassified directory. | False |
 | references | string | Path to a directory containing FASTA reference files. | Accepted file extensions are '.fasta', '.fna', '.ffn', '.faa', '.frn', '.fa', '.txt', '.fa.gz', '.fna.gz', '.frn.gz', '.ffn.gz', '.fasta.gz'. |  |
+| tests_config | string | Path to a JSON file containing parameters for the qualification tests. | See data/tests_config.json for details. |  |
 | counts | string | Path to a CSV file containing expected counts as a control. | The expected counts CSV file must contain columns named 'reference' and 'expected_counts' in order to be valid. the 'reference' column should contain names matching the names of reference sequences within the fasta files provided using --references. |  |
 
 
@@ -130,7 +132,6 @@ input_reads.fastq   ─── input_directory  ─── input_directory
 | Nextflow parameter name  | Type | Description | Help | Default |
 |--------------------------|------|-------------|------|---------|
 | sample_sheet | string | A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files. | The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`. |  |
-| sample | string | A single sample name for non-multiplexed data. Permissible if passing a single .fastq(.gz) file or directory of .fastq(.gz) files. |  |  |
 
 
 ### Output Options
@@ -168,13 +169,15 @@ Output files may be aggregated including information for all samples or provided
 
 | Title | File path | Description | Per sample or aggregated |
 |-------|-----------|-------------|--------------------------|
-| workflow report | ./wf-alignment-report.html | Report for all samples | aggregated |
-| Combined references | ./combined-refs.fasta | FASTA file containing all input references. | aggregated |
-| Combined references index | ./combined-refs.fasta.fai | Index file for combined references FASTA. | aggregated |
-| Per-read alignment stats | ./{{ alias }}.readstats.tsv | Bamstats per-read output TSV file. | per-sample |
-| Per-reference alignment stats | ./{{ alias }}.flagstat.tsv | Bamstats flagstat output TSV file. | per-sample |
-| Alignments BAM file | ./{{ alias }}.sorted.aligned.bam | BAM file with alignments of filtered input reads against the combined references. | per-sample |
-| Alignments index file | ./{{ alias }}.sorted.aligned.bam.bai | Index for alignments BAM file. | per-sample |
+| workflow report | wf-installation-qualification-report.html | Report for all samples | aggregated |
+| Combined references | combined-refs.fasta | FASTA file containing all input references. | aggregated |
+| Combined references index | combined-refs.fasta.fai | Index file for combined references FASTA. | aggregated |
+| Per-read alignment stats | {{ alias }}.readstats.tsv | Bamstats per-read output TSV file. | per-sample |
+| Per-reference alignment stats | {{ alias }}.flagstat.tsv | Bamstats flagstat output TSV file. | per-sample |
+| Alignments BAM file | {{ alias }}.sorted.aligned.bam | BAM file with alignments of filtered input reads against the combined references. | per-sample |
+| Alignments index file | {{ alias }}.sorted.aligned.bam.bai | Index for alignments BAM file. | per-sample |
+| workflow checkpoints | checkpoints.json | Structured workflow checkpoints for internal/onward use. | aggregated |
+| workflow results | results.json | Structured workflow results for internal/onward use. | aggregated |
 
 
 
@@ -212,7 +215,7 @@ Depth of coverage along the reference sequences is determined with [Mosdepth](ht
 
 *I cannot select a single reference file in the EPI2ME desktop app.* - When running the workflow via the desktop app, you need to provide a directory with reference files. If you only have a single file, you can create a directory to place your reference file inside and select this with the reference input option.
 
-If your question is not answered here, please report any issues or suggestions on the [github issues](https://github.com/epi2me-labs/wf-alignment/issues) page or start a discussion on the [community](https://community.nanoporetech.com/).
+If your question is not answered here, please report any issues or suggestions on the [github issues](https://github.com/epi2me-labs/wf-installation-qualification/issues) page or start a discussion on the [community](https://community.nanoporetech.com/).
 
 
 
