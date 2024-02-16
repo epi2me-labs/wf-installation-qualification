@@ -4,7 +4,7 @@ include:
       file: "wf-containers.yaml"
 
 variables:
-    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references  --sample_sheet test_data/sample_sheet.csv"
+    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --references test_data/references  --sample_sheet test_data/sample_sheet/sample_sheet.csv"
     CI_FLAVOUR: "new"
     PYTEST_CONTAINER_NAME: "wf-alignment"
 
