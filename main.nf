@@ -25,6 +25,7 @@ MINIMAP_ARGS_PRESETS = [
 process accumulateCheckpoints {
     label "wf_common"
     cpus 1
+    memory "2 GB"
     input:
         path data
         val metadata
