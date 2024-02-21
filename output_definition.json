@@ -2,7 +2,7 @@
   "files": {
     "workflow-report": {
       "filepath": "wf-installation-qualification-report.html",
-      "title": "workflow report",
+      "title": "Workflow report",
       "description": "Report for all samples",
       "mime-type": "text/html",
       "optional": false,
@@ -58,7 +58,7 @@
     },
     "workflow-checkpoints" : {
       "filepath": "checkpoints.json",
-      "title": "workflow checkpoints",
+      "title": "Workflow checkpoints",
       "description": "Structured workflow checkpoints for internal/onward use.",
       "mime-type": "text/json",
       "optional": false,
@@ -66,7 +66,7 @@
     },
     "workflow-results": {
       "filepath": "results.json",
-      "title": "workflow results",
+      "title": "Workflow results",
       "description": "Structured workflow results for internal/onward use.",
       "mime-type": "text/json",
       "optional": false,

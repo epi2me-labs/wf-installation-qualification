@@ -44,7 +44,7 @@
                 "tests_config": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to a JSON file containing parameters for the qualification tests.",
+                    "description": "Path to a JSON file containing parameters for the qualification tests. Each barcode must be recorded in this file along with its target reference sequence and whether the sample is a negative_control.",
                     "help_text": "See data/tests_config.json for details."
                 },
                 "counts": {
