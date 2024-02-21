@@ -6,15 +6,16 @@ Align Nanopore reads and visualize mapping statistics.
 
 ## Introduction
 
-This workflow provides an easy way to align Oxford Nanopore reads and gather mapping
-stats either locally for small amounts of data or at scale in a distributed
-environment such as a cluster or the cloud.
+This workflow enables users to carry out a series of tests on each sample, to compare statistics to predefined criteria and thresholds.
+These include mapping statistics based on alignment to a specified reference sequence, for both test and negative control samples.
+A set of default criteria is provided in data/tests_config.json.
+An alignment report is also produced to illustrate and summarise the results.
 
-In brief, it will perform the following:
+In brief, the workflow performs the following:
 * Combine all reference files in the directory passed to `--references`.
-* Align input reads (passed as FASTQ or unaligned BAM files) against the reference (Note that BAM files with aligned reads can be used as well; these will skip the alignment step and only stats and the report will be produced).
-* Create alignment stats.
-* Calculate depth of coverage along the reference sequences (this step can be skipped if requested).
+* Align input reads (passed as FASTQ or unaligned BAM files) against the reference (note that BAM files with aligned reads can be used as well; these will skip the alignment step and only statistics and the report will be produced).
+* Create alignment statistics.
+* Compare alignment statistics to provided criteria and marks samples as failed or passed.
 * Create an HTML report to illustrate the results.
 
 
@@ -123,7 +124,7 @@ input_reads.fastq   ─── input_directory  ─── input_directory
 | bam | string | BAM or unaligned BAM (uBAM) files to use in the analysis. | This accepts one of three cases: (i) the path to a single BAM file; (ii) the path to a top-level directory containing BAM files; (iii) the path to a directory containing one level of sub-directories which in turn contain BAM files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`. |  |
 | analyse_unclassified | boolean | Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory. | If selected and if the input is a multiplex directory the workflow will also process the unclassified directory. | False |
 | references | string | Path to a directory containing FASTA reference files. | Accepted file extensions are '.fasta', '.fna', '.ffn', '.faa', '.frn', '.fa', '.txt', '.fa.gz', '.fna.gz', '.frn.gz', '.ffn.gz', '.fasta.gz'. |  |
-| tests_config | string | Path to a JSON file containing parameters for the qualification tests. | See data/tests_config.json for details. |  |
+| tests_config | string | Path to a JSON file containing parameters for the qualification tests. Each barcode must be recorded in this file along with its target reference sequence and whether the sample is a negative_control. | See data/tests_config.json for details. |  |
 | counts | string | Path to a CSV file containing expected counts as a control. | The expected counts CSV file must contain columns named 'reference' and 'expected_counts' in order to be valid. the 'reference' column should contain names matching the names of reference sequences within the fasta files provided using --references. |  |
 
 
@@ -169,15 +170,15 @@ Output files may be aggregated including information for all samples or provided
 
 | Title | File path | Description | Per sample or aggregated |
 |-------|-----------|-------------|--------------------------|
-| workflow report | wf-installation-qualification-report.html | Report for all samples | aggregated |
+| Workflow report | wf-installation-qualification-report.html | Report for all samples | aggregated |
 | Combined references | combined-refs.fasta | FASTA file containing all input references. | aggregated |
 | Combined references index | combined-refs.fasta.fai | Index file for combined references FASTA. | aggregated |
 | Per-read alignment stats | {{ alias }}.readstats.tsv | Bamstats per-read output TSV file. | per-sample |
 | Per-reference alignment stats | {{ alias }}.flagstat.tsv | Bamstats flagstat output TSV file. | per-sample |
 | Alignments BAM file | {{ alias }}.sorted.aligned.bam | BAM file with alignments of filtered input reads against the combined references. | per-sample |
 | Alignments index file | {{ alias }}.sorted.aligned.bam.bai | Index for alignments BAM file. | per-sample |
-| workflow checkpoints | checkpoints.json | Structured workflow checkpoints for internal/onward use. | aggregated |
-| workflow results | results.json | Structured workflow results for internal/onward use. | aggregated |
+| Workflow checkpoints | checkpoints.json | Structured workflow checkpoints for internal/onward use. | aggregated |
+| Workflow results | results.json | Structured workflow results for internal/onward use. | aggregated |
 
 
 
@@ -192,13 +193,18 @@ All reference files in the directory passed to `--references` are concatenated.
 
 Input reads are aligned against the combined reference with [Minimap2](https://github.com/lh3/minimap2). If BAM files are used as input (with `--bam`), only reads in files without a reference in the SAM header are aligned. For other BAM files this step is skipped.
 
-### 3. Create alignment stats
+### 3. Create alignment statistics
 
-[Bamstats](https://github.com/epi2me-labs/fastcat#bamstats) is used to create per-read and per-reference alignment stats from the BAM files.
+[Bamstats](https://github.com/epi2me-labs/fastcat#bamstats) is used to create per-read and per-reference alignment statistics from the BAM files.
 
 ### 4. Calculate depth of coverage
 
 Depth of coverage along the reference sequences is determined with [Mosdepth](https://github.com/brentp/mosdepth) (using 200 windows per reference sequence). To speed up the workflow, this step can be skipped by adding `--depth-coverage false`.
+
+### 5. Run qualification tests to compare statisticss to specified criteria
+
+Criteria and thresholds listed in a tests_config JSON file are use to determine which samples have passed or failed the qualification checks. 
+Test samples are required to be above the stated alignment thresholds for a specified reference sequence, whereas control samples are required to be below set limits. The type of sample that each barcode relates to (`test` or `negative_control`) is taken from the tests_cofig JSON file.
 
 
 
